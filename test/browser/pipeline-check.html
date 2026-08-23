@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>管線自我檢測</title>
+<style>
+  body { font: 15px/1.6 system-ui, sans-serif; background: #10131a; color: #e8ecf4; padding: 24px; }
+  h1 { font-size: 18px; }
+  li { margin-bottom: 4px; }
+  .pass { color: #35d07f; }
+  .fail { color: #ff6b6b; }
+  code { color: #93a0b5; }
+  video { display: none; }
+</style>
+</head>
+<body>
+<h1>管線自我檢測</h1>
+<p>不需要螢幕分享。用 canvas 產生的假畫面跑完整條管線，驗證取樣、裁切與紅點判定。</p>
+<ul id="results"><li>執行中…</li></ul>
+<video id="video" muted playsinline></video>
+
+<script type="module">
+import { createCapture } from '../../src/capture.js';
+
+const FPS = 5;
+const DURATION_MS = 3000;
+const results = document.getElementById('results');
+
+function report(items) {
+  results.innerHTML = '';
+  for (const { ok, label, detail } of items) {
+    const li = document.createElement('li');
+    li.className = ok ? 'pass' : 'fail';
+    li.innerHTML = `${ok ? '✓' : '✗'} ${label} <code>${detail}</code>`;
+    results.append(li);
+  }
+}
+
+// A dark frame with three moving red dots plus a yellow player marker and an
+// orange torch, which are the two colours most likely to cause false positives.
+const source = document.createElement('canvas');
+source.width = 320;
+source.height = 240;
+const context = source.getContext('2d');
+let tick = 0;
+
+setInterval(() => {
+  tick++;
+  context.fillStyle = '#101418';
+  context.fillRect(0, 0, source.width, source.height);
+  context.fillStyle = '#ffff00';
+  context.fillRect(10, 200, 6, 6);
+  context.fillStyle = '#e27304';
+  context.fillRect(40, 200, 8, 8);
+  context.fillStyle = '#ff0000';
+  context.fillRect(20 + (tick % 5), 20, 6, 6);
+  context.fillRect(120, 60, 6, 6);
+  context.fillRect(200, 100, 6, 6);
+}, 33);
+
+const counts = [];
+let frames = 0;
+let rect = null;
+
+const capture = createCapture({
+  video: document.getElementById('video'),
+  requestStream: async () => source.captureStream(30),
+  onResult: (result) => {
+    frames++;
+    counts.push(result.count);
+    rect ??= result.rect;
+  },
+});
+
+capture.setFps(FPS);
+capture.setRegion({ x: 0, y: 0, width: 0.75, height: 0.75 });
+
+const mode = await capture.start();
+
+setTimeout(() => {
+  capture.stop();
+  const measuredFps = (frames / DURATION_MS) * 1000;
+  const everyFrameFoundThree = counts.length > 0 && counts.every((count) => count === 3);
+
+  report([
+    {
+      ok: mode === 'track-processor',
+      label: '使用背景安全的取樣模式',
+      detail: mode,
+    },
+    {
+      ok: measuredFps > FPS * 0.6 && measuredFps < FPS * 1.4,
+      label: `取樣頻率接近設定的 ${FPS} fps`,
+      detail: `${measuredFps.toFixed(1)} fps（${frames} 幀）`,
+    },
+    {
+      ok: everyFrameFoundThree,
+      label: '每一幀都數到 3 個紅點，黃點與橘色火把沒有被誤判',
+      detail: `counts = [${counts.slice(0, 10).join(', ')}${counts.length > 10 ? ', …' : ''}]`,
+    },
+    {
+      ok: rect?.width === 240 && rect?.height === 180,
+      label: '框選範圍正確裁切（320×240 的 75%）',
+      detail: rect ? `${rect.width}×${rect.height}` : '無',
+    },
+  ]);
+}, DURATION_MS);
+</script>
+</body>
+</html>

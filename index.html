@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>小地圖紅點警報</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='10' fill='%23ff2d2d'/></svg>">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="bar">
+  <h1>小地圖紅點警報</h1>
+  <div class="bar-status">
+    <span id="statusPill" class="pill pill-idle">待機中</span>
+    <span id="sourceMode" class="muted"></span>
+  </div>
+</header>
+
+<main>
+  <section class="panel readout">
+    <div class="count-box">
+      <span id="dotCount" class="count">–</span>
+      <span class="count-label">目前紅點</span>
+    </div>
+    <dl class="stats">
+      <div><dt>警戒值</dt><dd id="statThreshold">1</dd></div>
+      <div><dt>取樣</dt><dd id="statFps">0.0 fps</dd></div>
+      <div><dt>上次通知</dt><dd id="statLastAlert">尚未通知</dd></div>
+      <div><dt>背景取樣</dt><dd id="statHidden">0 幀</dd></div>
+    </dl>
+    <div class="actions">
+      <button id="startButton" type="button" class="primary">開始分享螢幕</button>
+      <button id="stopButton" type="button" disabled>停止</button>
+      <button id="testButton" type="button">測試通知</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>畫面與範圍</h2>
+      <div class="panel-head-actions">
+        <button id="clearRegionButton" type="button" class="link" disabled>清除框選</button>
+      </div>
+    </div>
+    <div id="previewWrap" class="preview">
+      <video id="preview" muted playsinline></video>
+      <canvas id="overlay"></canvas>
+      <p id="previewHint" class="preview-hint">按「開始分享螢幕」並選擇遊戲視窗，接著在畫面上拖曳框出小地圖範圍。</p>
+    </div>
+    <p id="regionInfo" class="muted small">尚未框選範圍，目前偵測整個畫面。</p>
+  </section>
+
+  <section class="panel">
+    <h2>警報設定</h2>
+    <div class="grid">
+      <label>警戒紅點數
+        <input id="threshold" type="number" min="1" max="99" step="1">
+        <span class="hint">達到這個數量就通知</span>
+      </label>
+      <label>通知冷卻（秒）
+        <input id="cooldownSeconds" type="number" min="0" max="3600" step="1">
+        <span class="hint">通知後多久內不重複打擾</span>
+      </label>
+      <label>取樣頻率（fps）
+        <input id="sampleFps" type="number" min="1" max="10" step="1">
+        <span class="hint">每秒檢查幾次畫面</span>
+      </label>
+    </div>
+    <div class="toggles">
+      <label class="toggle"><input id="notifySystem" type="checkbox"> 系統通知</label>
+      <label class="toggle"><input id="notifySound" type="checkbox"> 音效</label>
+      <label class="toggle"><input id="notifyFlash" type="checkbox"> 頁面閃爍</label>
+      <button id="permissionButton" type="button" class="link">允許通知</button>
+      <span id="permissionState" class="muted small"></span>
+    </div>
+
+    <details class="advanced">
+      <summary>進階：紅點判定參數</summary>
+      <p class="muted small">預設值是對照實際小地圖截圖調出來的，會濾掉火把、木頭等橘紅色場景。畫面縮放或有濾鏡時才需要調整。</p>
+      <div class="grid">
+        <label>色相容差（度）
+          <input id="hueTolerance" type="number" min="0" max="60" step="1">
+        </label>
+        <label>最低飽和度
+          <input id="minSaturation" type="number" min="0" max="1" step="0.05">
+        </label>
+        <label>最低明度
+          <input id="minValue" type="number" min="0" max="1" step="0.05">
+        </label>
+        <label>最小點面積（px）
+          <input id="minArea" type="number" min="1" max="10000" step="1">
+        </label>
+        <label>最大點面積（px）
+          <input id="maxArea" type="number" min="1" max="100000" step="1">
+        </label>
+        <label>去彈跳幀數
+          <input id="stableFrames" type="number" min="1" max="10" step="1">
+          <span class="hint">連續幾幀一致才算數</span>
+        </label>
+      </div>
+      <div class="toggles">
+        <label class="toggle"><input id="splitMergedBlobs" type="checkbox"> 估算重疊紅點人數</label>
+        <label>合併判定倍率
+          <input id="mergeThreshold" type="number" min="1" max="10" step="0.1">
+        </label>
+        <button id="resetButton" type="button" class="link">重設為預設值</button>
+      </div>
+    </details>
+  </section>
+
+  <section class="panel">
+    <h2>使用說明</h2>
+    <ol class="notes">
+      <li>按「開始分享螢幕」，選擇遊戲視窗或整個螢幕。建議選「視窗」，畫面比較穩定。</li>
+      <li>在預覽畫面上拖曳，框出小地圖的範圍。框選會自動記住，下次不用重來。</li>
+      <li>確認框內偵測到的紅點有被綠框標出來，數字也對得上，就可以切回遊戲了。</li>
+      <li>系統通知需要瀏覽器權限；Windows 的「專注助理／勿擾」開啟時通知會被系統吞掉。</li>
+      <li>本頁完全在你的瀏覽器裡執行，畫面不會上傳到任何地方。</li>
+    </ol>
+  </section>
+</main>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
