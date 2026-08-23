@@ -1,0 +1,11 @@
+{
+  "name": "artale-red-dot-alert",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Client-side minimap red-dot detector with screen sharing and desktop alerts",
+  "scripts": {
+    "test": "node --test",
+    "serve": "node scripts/serve.js"
+  }
+}
