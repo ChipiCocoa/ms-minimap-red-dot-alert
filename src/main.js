@@ -326,11 +326,15 @@ function refreshPermissionState() {
 function bindButtons() {
   ui.startButton.addEventListener('click', async () => {
     ui.startButton.disabled = true;
-    try {
-      await alerts.prepare();
-      await requestNotificationPermission();
-      refreshPermissionState();
 
+    // Both the audio context and getDisplayMedia need the click's user
+    // activation, and awaiting anything first can spend it. So the audio
+    // context is created synchronously here and only awaited once capture has
+    // claimed the gesture. Notification permission is asked for from its own
+    // button for the same reason.
+    const preparing = alerts.prepare();
+
+    try {
       capture.setRegion(settings.region);
       capture.setDetectOptions(settings.detect);
       capture.setFps(settings.sampleFps);
@@ -350,6 +354,9 @@ function bindButtons() {
       ui.previewWrap.classList.add('live');
       setStatus('偵測中', 'live');
       resizeOverlay();
+
+      await preparing;
+      refreshPermissionState();
     } catch (error) {
       ui.startButton.disabled = false;
       if (error?.name !== 'NotAllowedError') {
@@ -361,9 +368,9 @@ function bindButtons() {
   ui.stopButton.addEventListener('click', () => capture.stop());
 
   ui.testButton.addEventListener('click', async () => {
-    await alerts.prepare();
     await requestNotificationPermission();
     refreshPermissionState();
+    await alerts.prepare();
     alerts.fire({ count: settings.threshold, threshold: settings.threshold, channels: settings });
   });
 

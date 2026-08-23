@@ -69,13 +69,23 @@ export function createAlerts({ onFlash }) {
   }
 
   return {
-    /** Must be called from a user gesture so audio is allowed to start. */
+    /**
+     * Must be called from a user gesture so audio is allowed to start. The
+     * audio context is created before the first await so the gesture is not
+     * spent, and nothing here rejects: failing to set up a channel must never
+     * stop capture from starting.
+     */
     async prepare() {
       if (!audioContext) {
         const AudioContextClass = window.AudioContext ?? window.webkitAudioContext;
         if (AudioContextClass) audioContext = new AudioContextClass();
       }
-      if (audioContext?.state === 'suspended') await audioContext.resume();
+
+      try {
+        if (audioContext?.state === 'suspended') await audioContext.resume();
+      } catch {
+        // An audio context that will not start just means no chime.
+      }
 
       if (!serviceWorker && 'serviceWorker' in navigator) {
         try {
