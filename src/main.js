@@ -47,6 +47,8 @@ let dragStart = null;
 let dragCurrent = null;
 let flashTimer = null;
 let hiddenFrames = 0;
+let frameErrors = 0;
+let sourceLabel = '';
 const frameTimestamps = [];
 
 const overlayContext = ui.overlay.getContext('2d');
@@ -71,15 +73,27 @@ const capture = createCapture({
   video: ui.video,
   onResult: handleResult,
   onStop: handleStopped,
-  onError: (error) => console.warn('capture', error),
+  onError: handleCaptureError,
 });
 
-function createGate() {
-  return createAlertGate({
+// A frame that fails to process no longer stops sampling, so the failure has to
+// be visible instead: a silent watcher is worse than no watcher.
+function handleCaptureError(error) {
+  frameErrors++;
+  console.warn('capture', error);
+  ui.sourceMode.textContent = `偵測發生錯誤（已略過 ${frameErrors} 幀）：${error?.message ?? error}`;
+}
+
+function gateOptions() {
+  return {
     threshold: settings.threshold,
     stableFrames: settings.stableFrames,
     cooldownMs: settings.cooldownSeconds * 1000,
-  });
+  };
+}
+
+function createGate() {
+  return createAlertGate(gateOptions());
 }
 
 function persist() {
@@ -104,8 +118,10 @@ function bindForm() {
     el(field).addEventListener('change', (event) => {
       settings[field] = Number(event.target.value);
       persist();
-      el(field).value = String(settings[field]);
-      gate = createGate();
+      fillForm();
+      // Reconfigured rather than rebuilt: a settings tweak must not clear the
+      // cooldown and re-alert on a dot that has been there all along.
+      gate.configure(gateOptions());
       if (field === 'sampleFps') capture.setFps(settings.sampleFps);
     });
   }
@@ -121,7 +137,9 @@ function bindForm() {
     el(field).addEventListener('change', (event) => {
       settings.detect[field] = Number(event.target.value);
       persist();
-      el(field).value = String(settings.detect[field]);
+      // Normalisation can adjust a field other than the one edited, so the
+      // whole form is refilled rather than just this input.
+      fillForm();
     });
   }
 
@@ -159,6 +177,11 @@ function measureFps() {
 function handleResult(result) {
   lastResult = result;
   measureFps();
+
+  if (frameErrors > 0) {
+    frameErrors = 0;
+    ui.sourceMode.textContent = sourceLabel;
+  }
 
   // Proof that sampling survives the tab being hidden, which is the state the
   // app spends almost all of its time in.
@@ -340,15 +363,17 @@ function bindButtons() {
       capture.setFps(settings.sampleFps);
       gate = createGate();
       hiddenFrames = 0;
+      frameErrors = 0;
       ui.statHidden.textContent = '0 幀';
 
       const mode = await capture.start();
       if (mode === 'video-element') {
         keepAwake.start();
-        ui.sourceMode.textContent = '相容模式：請讓此視窗保持可見';
+        sourceLabel = '相容模式：請讓此視窗保持可見';
       } else {
-        ui.sourceMode.textContent = '背景取樣模式';
+        sourceLabel = '背景取樣模式';
       }
+      ui.sourceMode.textContent = sourceLabel;
 
       ui.stopButton.disabled = false;
       ui.previewWrap.classList.add('live');
@@ -384,7 +409,7 @@ function bindButtons() {
     settings = normalizeSettings({ ...DEFAULT_SETTINGS, region });
     persist();
     fillForm();
-    gate = createGate();
+    gate.configure(gateOptions());
     capture.setFps(settings.sampleFps);
   });
 }

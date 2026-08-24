@@ -53,6 +53,7 @@ export function createCapture({ video, onResult, onStop, onError, requestStream 
       fps,
       onFrame: handleFrame,
       onEnd: () => api.stop(),
+      onError: (error) => onError?.(error),
     });
     return source.mode;
   }

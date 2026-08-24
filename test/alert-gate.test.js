@@ -78,3 +78,25 @@ test('honours a threshold higher than one', () => {
   assert.equal(gate.update(3, 500), false);
   assert.equal(gate.update(3, 750), true);
 });
+
+test('keeps the cooldown running when settings change mid-alert', () => {
+  const gate = createAlertGate({ threshold: 1, stableFrames: 2, cooldownMs: 30000 });
+  gate.update(1, 0);
+  gate.update(1, 250);
+
+  gate.configure({ cooldownMs: 60000 });
+
+  assert.equal(gate.update(1, 500), false);
+  assert.equal(gate.update(1, 750), false);
+});
+
+test('applies a newly configured threshold to later samples', () => {
+  const gate = createAlertGate({ threshold: 5, stableFrames: 2, cooldownMs: 30000 });
+  gate.update(2, 0);
+  gate.update(2, 250);
+
+  gate.configure({ threshold: 2 });
+
+  assert.equal(gate.update(2, 500), false);
+  assert.equal(gate.update(2, 750), true);
+});

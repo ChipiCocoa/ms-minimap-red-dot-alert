@@ -74,3 +74,10 @@ test('round-trips saved settings through storage', () => {
 
   assert.deepEqual(loadSettings(storage), settings);
 });
+
+test('never accepts a dot area range that can match nothing', () => {
+  const { detect } = normalizeSettings({ detect: { minArea: 500, maxArea: 10 } });
+
+  assert.equal(detect.minArea, 500);
+  assert.equal(detect.maxArea, 500);
+});

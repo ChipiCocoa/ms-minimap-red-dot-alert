@@ -6,39 +6,43 @@
 // driven by the capture pipeline rather than by the page being painted. The
 // video-element path only exists for browsers without that API.
 
+import { createFramePump } from './frame-pump.js';
+
 export function supportsTrackProcessor() {
   return typeof globalThis.MediaStreamTrackProcessor === 'function';
 }
 
-function createProcessorSource({ track, minIntervalMs, onFrame, onEnd }) {
+function createProcessorSource({ track, pump, onEnd, onError }) {
   const processor = new MediaStreamTrackProcessor({ track });
   const reader = processor.readable.getReader();
   let stopped = false;
-  let lastFrameAt = 0;
 
   (async () => {
     while (!stopped) {
-      let result;
-      try {
-        result = await reader.read();
-      } catch {
+      const { value: frame, done } = await reader.read();
+      if (done || stopped) {
+        frame?.close();
         break;
       }
-      if (result.done) break;
 
-      const frame = result.value;
       try {
-        const now = performance.now();
-        if (now - lastFrameAt >= minIntervalMs) {
-          lastFrameAt = now;
-          onFrame(frame, frame.displayWidth, frame.displayHeight);
-        }
+        pump.push(
+          { drawable: frame, width: frame.displayWidth, height: frame.displayHeight },
+          performance.now(),
+        );
       } finally {
         frame.close();
       }
     }
-    if (!stopped) onEnd();
-  })();
+  })().catch((error) => {
+    // Only reader-level failures reach here; frame handler errors are contained
+    // by the pump. Either way the loop is over, so say so rather than leaving
+    // the page believing it is still watching.
+    if (!stopped) {
+      onError(error);
+      onEnd();
+    }
+  });
 
   return {
     mode: 'track-processor',
@@ -49,17 +53,15 @@ function createProcessorSource({ track, minIntervalMs, onFrame, onEnd }) {
   };
 }
 
-function createVideoSource({ video, minIntervalMs, onFrame }) {
+function createVideoSource({ video, pump, minIntervalMs }) {
   let stopped = false;
-  let lastFrameAt = 0;
-  let timer = null;
 
   const grab = () => {
     if (stopped || !video.videoWidth) return;
-    const now = performance.now();
-    if (now - lastFrameAt < minIntervalMs) return;
-    lastFrameAt = now;
-    onFrame(video, video.videoWidth, video.videoHeight);
+    pump.push(
+      { drawable: video, width: video.videoWidth, height: video.videoHeight },
+      performance.now(),
+    );
   };
 
   if (typeof video.requestVideoFrameCallback === 'function') {
@@ -73,7 +75,7 @@ function createVideoSource({ video, minIntervalMs, onFrame }) {
 
   // Runs alongside the frame callback: the callback stops in a hidden tab and
   // the timer keeps going (throttled) while the page is kept awake.
-  timer = setInterval(grab, minIntervalMs);
+  const timer = setInterval(grab, minIntervalMs);
 
   return {
     mode: 'video-element',
@@ -85,13 +87,26 @@ function createVideoSource({ video, minIntervalMs, onFrame }) {
 }
 
 /**
- * Starts delivering frames. `onFrame(source, width, height)` is called with a
- * drawable that is only valid for the duration of the call.
+ * Starts delivering frames. `onFrame(drawable, width, height)` is called with a
+ * drawable that is only valid for the duration of the call. A frame handler
+ * that throws is reported through `onError` and sampling continues.
  */
-export function createFrameSource({ track, video, fps, onFrame, onEnd = () => {} }) {
+export function createFrameSource({
+  track,
+  video,
+  fps,
+  onFrame,
+  onEnd = () => {},
+  onError = () => {},
+}) {
   const minIntervalMs = 1000 / fps - 1;
+  const pump = createFramePump({
+    minIntervalMs,
+    onFrame: ({ drawable, width, height }) => onFrame(drawable, width, height),
+    onError,
+  });
 
   return supportsTrackProcessor()
-    ? createProcessorSource({ track, minIntervalMs, onFrame, onEnd })
-    : createVideoSource({ video, minIntervalMs, onFrame });
+    ? createProcessorSource({ track, pump, onEnd, onError })
+    : createVideoSource({ video, pump, minIntervalMs });
 }

@@ -20,6 +20,15 @@ export function createAlertGate(options = {}) {
     lastNotifiedAt === null || now - lastNotifiedAt >= opts.cooldownMs;
 
   return {
+    /**
+     * Applies new options without disturbing the alert state. Rebuilding the
+     * gate instead would clear the cooldown, so adjusting a setting while a dot
+     * is on screen would fire a second alert for the same unchanged dot.
+     */
+    configure(next) {
+      Object.assign(opts, next);
+    },
+
     /** Feeds one detection result in; returns true when an alert should fire. */
     update(count, now) {
       if (count >= opts.threshold) {

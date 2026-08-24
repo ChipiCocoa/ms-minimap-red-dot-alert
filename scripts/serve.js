@@ -18,28 +18,46 @@ const TYPES = {
   '.svg': 'image/svg+xml',
 };
 
-const server = createServer(async (request, response) => {
-  const url = new URL(request.url, `http://${request.headers.host}`);
-  const relative = normalize(decodeURIComponent(url.pathname)).replace(/^(\.\.[/\\])+/, '');
+/** Resolves a request path to a file inside the project, or null if it escapes. */
+function resolveRequestPath(requestUrl) {
+  const { pathname } = new URL(requestUrl, 'http://localhost');
+  const relative = normalize(decodeURIComponent(pathname)).replace(/^(\.\.[/\\])+/, '');
   const path = join(ROOT, relative === '/' ? 'index.html' : relative);
+  return path.startsWith(ROOT) ? path : null;
+}
 
-  if (!path.startsWith(ROOT)) {
-    response.writeHead(403).end('forbidden');
-    return;
-  }
+export function createStaticServer() {
+  return createServer(async (request, response) => {
+    // Decoding happens inside the guard: a malformed escape such as `/%` throws
+    // a URIError, and an unhandled rejection here takes the whole server down.
+    let path;
+    try {
+      path = resolveRequestPath(request.url);
+    } catch {
+      response.writeHead(400).end('bad request');
+      return;
+    }
 
-  try {
-    const body = await readFile(path);
-    response.writeHead(200, {
-      'content-type': TYPES[extname(path)] ?? 'application/octet-stream',
-      'cache-control': 'no-store',
-    });
-    response.end(body);
-  } catch {
-    response.writeHead(404).end('not found');
-  }
-});
+    if (!path) {
+      response.writeHead(403).end('forbidden');
+      return;
+    }
 
-server.listen(PORT, () => {
-  console.log(`小地圖紅點警報：http://localhost:${PORT}`);
-});
+    try {
+      const body = await readFile(path);
+      response.writeHead(200, {
+        'content-type': TYPES[extname(path)] ?? 'application/octet-stream',
+        'cache-control': 'no-store',
+      });
+      response.end(body);
+    } catch {
+      response.writeHead(404).end('not found');
+    }
+  });
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  createStaticServer().listen(PORT, () => {
+    console.log(`小地圖紅點警報：http://localhost:${PORT}`);
+  });
+}

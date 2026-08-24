@@ -73,11 +73,17 @@ export function normalizeRegion(raw) {
 export function normalizeSettings(raw) {
   const source = raw && typeof raw === 'object' ? raw : {};
   const { region, detect, ...scalars } = DEFAULT_SETTINGS;
+  const detectOptions = normalizeGroup(source.detect, DETECT_DEFAULTS, DETECT_RANGES);
+
+  // An inverted area range matches no blob at all, which would leave the app
+  // reporting zero dots for ever without saying why. Widening the upper bound
+  // errs towards a false alarm, which is the failure a watcher can survive.
+  detectOptions.maxArea = Math.max(detectOptions.minArea, detectOptions.maxArea);
 
   return {
     ...normalizeGroup(source, scalars, RANGES),
     region: normalizeRegion(source.region),
-    detect: normalizeGroup(source.detect, DETECT_DEFAULTS, DETECT_RANGES),
+    detect: detectOptions,
   };
 }
 
