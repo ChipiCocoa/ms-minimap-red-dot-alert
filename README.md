@@ -7,7 +7,7 @@
 ## 執行
 
 ```bash
-npm run serve
+pnpm serve
 ```
 
 打開 <http://localhost:8080>。`getDisplayMedia` 只在安全來源可用，`localhost` 算安全來源，所以不能直接用 `file://` 開。
@@ -38,12 +38,12 @@ npm run serve
 ## 測試
 
 ```bash
-npm test
+pnpm test
 ```
 
 純邏輯的單元測試（顏色判定、分群計數、警報去彈跳與冷卻、範圍幾何、設定驗證），其中紅點判定是直接跑真實的小地圖截圖。
 
-瀏覽器端的管線檢測需要真的瀏覽器：`npm run serve` 之後打開
+瀏覽器端的管線檢測需要真的瀏覽器：`pnpm serve` 之後打開
 <http://localhost:8080/test/browser/pipeline-check.html>，它用 canvas 產生的假畫面跑完整條管線，不需要螢幕分享權限。
 
 ## 已知限制
