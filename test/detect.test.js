@@ -95,3 +95,14 @@ test('finds no dots among the sprites of a real captured region', () => {
 
   assert.deepEqual(amongTheSprites, []);
 });
+
+test('ignores scenery specks and the window frame in a detailed minimap', () => {
+  // This map's minimap is a miniature render rather than a schematic, so it is
+  // littered with small red details. The red mushroom cap is the one thing that
+  // is not separable: it is drawn in the same pure reds as a player dot and is
+  // a comparable size, so colour, area, fill and aspect all fail to tell them
+  // apart. Everything else in the frame is rejected.
+  const { blobs } = detectRedDots(fixture('minimap-detailed-scenery.png'));
+
+  assert.deepEqual(blobs.map((blob) => `${blob.width}x${blob.height}@${blob.x},${blob.y}`), ['15x9@96,72']);
+});

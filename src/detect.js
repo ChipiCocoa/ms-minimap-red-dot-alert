@@ -4,10 +4,13 @@ export const DEFAULT_OPTIONS = {
   hueTolerance: 12,
   minSaturation: 0.75,
   // A minimap dot is drawn in near-pure red, so its darkest pixel still sits
-  // around 0.87. Game sprites are shaded with much darker reds that top out
-  // near 0.73, so the floor goes between the two rather than below both.
-  minValue: 0.8,
-  minArea: 3,
+  // around 0.87. Scenery is shaded with darker reds that top out near 0.8, so
+  // the floor goes between the two rather than below both.
+  minValue: 0.85,
+  // A player dot is roughly 5x5 at native scale and 10x10 when the capture is
+  // upscaled, so anything down at a few pixels is a speck of map art, not a
+  // player. Lower this only if the capture is scaled below native resolution.
+  minArea: 12,
   maxArea: 400,
   splitMergedBlobs: false,
   mergeThreshold: 1.6,

@@ -7,7 +7,7 @@ import { MIN_REGION_SIZE } from './region.js';
 
 // Bumped whenever the detector calibration changes, so options saved by an
 // earlier version are dropped rather than keeping the old behaviour alive.
-export const SETTINGS_VERSION = 2;
+export const SETTINGS_VERSION = 3;
 
 export const DEFAULT_SETTINGS = {
   version: SETTINGS_VERSION,
