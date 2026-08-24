@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_SETTINGS, loadSettings, normalizeSettings, saveSettings } from '../src/settings.js';
+import { DEFAULT_SETTINGS, SETTINGS_VERSION, loadSettings, normalizeSettings, saveSettings } from '../src/settings.js';
 
 const fakeStorage = (initial = {}) => ({
   items: { ...initial },
@@ -50,7 +50,7 @@ test('drops a stored region that is not a valid rect', () => {
 });
 
 test('clamps detector thresholds that would disable filtering', () => {
-  const { detect } = normalizeSettings({ detect: { minSaturation: 5, hueTolerance: -3 } });
+  const { detect } = normalizeSettings({ version: SETTINGS_VERSION, detect: { minSaturation: 5, hueTolerance: -3 } });
 
   assert.equal(detect.minSaturation, 1);
   assert.equal(detect.hueTolerance, 0);
@@ -76,8 +76,24 @@ test('round-trips saved settings through storage', () => {
 });
 
 test('never accepts a dot area range that can match nothing', () => {
-  const { detect } = normalizeSettings({ detect: { minArea: 500, maxArea: 10 } });
+  const { detect } = normalizeSettings({ version: SETTINGS_VERSION, detect: { minArea: 500, maxArea: 10 } });
 
   assert.equal(detect.minArea, 500);
   assert.equal(detect.maxArea, 500);
+});
+
+test('discards detector options saved before the current calibration', () => {
+  const stale = { version: 1, threshold: 4, detect: { minValue: 0.65 }, region: { x: 0.1, y: 0.1, width: 0.2, height: 0.2 } };
+
+  const settings = normalizeSettings(stale);
+
+  assert.equal(settings.detect.minValue, DEFAULT_SETTINGS.detect.minValue);
+  assert.equal(settings.threshold, 4, 'alert preferences survive the migration');
+  assert.deepEqual(settings.region, stale.region, 'the saved region survives the migration');
+});
+
+test('keeps detector options that were saved by the current version', () => {
+  const current = { ...DEFAULT_SETTINGS, detect: { ...DEFAULT_SETTINGS.detect, minValue: 0.9 } };
+
+  assert.equal(normalizeSettings(current).detect.minValue, 0.9);
 });

@@ -3,7 +3,10 @@
 export const DEFAULT_OPTIONS = {
   hueTolerance: 12,
   minSaturation: 0.75,
-  minValue: 0.65,
+  // A minimap dot is drawn in near-pure red, so its darkest pixel still sits
+  // around 0.87. Game sprites are shaded with much darker reds that top out
+  // near 0.73, so the floor goes between the two rather than below both.
+  minValue: 0.8,
   minArea: 3,
   maxArea: 400,
   splitMergedBlobs: false,

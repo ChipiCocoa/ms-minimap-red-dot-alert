@@ -78,3 +78,20 @@ test('estimates how many players a merged blob contains when splitting is enable
   assert.equal(count, 5);
   assert.deepEqual(blobs.map((blob) => blob.dots), [1, 1, 1, 2]);
 });
+
+test('ignores the dark reds that game sprites are shaded with', () => {
+  const image = createImage(80, 60);
+  // Sampled from character sprites in a real game frame that were reported as
+  // red dots. A minimap dot never gets this dark.
+  const spriteReds = [[170, 0, 0], [187, 17, 0], [187, 34, 0], [153, 0, 0]];
+  spriteReds.forEach((colour, index) => fillRect(image, 5 + index * 18, 20, 6, 6, colour));
+
+  assert.equal(detectRedDots(image).count, 0);
+});
+
+test('finds no dots among the sprites of a real captured region', () => {
+  const { blobs } = detectRedDots(fixture('captured-region-dark-reds.png'));
+  const amongTheSprites = blobs.filter((blob) => blob.y < 100);
+
+  assert.deepEqual(amongTheSprites, []);
+});

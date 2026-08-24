@@ -5,7 +5,12 @@ import { DEFAULT_OPTIONS as DETECT_DEFAULTS } from './detect.js';
 import { DEFAULT_ALERT_OPTIONS } from './alert-gate.js';
 import { MIN_REGION_SIZE } from './region.js';
 
+// Bumped whenever the detector calibration changes, so options saved by an
+// earlier version are dropped rather than keeping the old behaviour alive.
+export const SETTINGS_VERSION = 2;
+
 export const DEFAULT_SETTINGS = {
+  version: SETTINGS_VERSION,
   threshold: DEFAULT_ALERT_OPTIONS.threshold,
   stableFrames: DEFAULT_ALERT_OPTIONS.stableFrames,
   cooldownSeconds: DEFAULT_ALERT_OPTIONS.cooldownMs / 1000,
@@ -72,8 +77,9 @@ export function normalizeRegion(raw) {
 
 export function normalizeSettings(raw) {
   const source = raw && typeof raw === 'object' ? raw : {};
-  const { region, detect, ...scalars } = DEFAULT_SETTINGS;
-  const detectOptions = normalizeGroup(source.detect, DETECT_DEFAULTS, DETECT_RANGES);
+  const { version, region, detect, ...scalars } = DEFAULT_SETTINGS;
+  const storedDetect = source.version === SETTINGS_VERSION ? source.detect : undefined;
+  const detectOptions = normalizeGroup(storedDetect, DETECT_DEFAULTS, DETECT_RANGES);
 
   // An inverted area range matches no blob at all, which would leave the app
   // reporting zero dots for ever without saying why. Widening the upper bound
@@ -81,6 +87,7 @@ export function normalizeSettings(raw) {
   detectOptions.maxArea = Math.max(detectOptions.minArea, detectOptions.maxArea);
 
   return {
+    version: SETTINGS_VERSION,
     ...normalizeGroup(source, scalars, RANGES),
     region: normalizeRegion(source.region),
     detect: detectOptions,
