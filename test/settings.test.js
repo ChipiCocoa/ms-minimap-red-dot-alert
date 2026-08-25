@@ -61,7 +61,7 @@ test('loads defaults when storage is empty', () => {
 });
 
 test('loads defaults when storage holds something that is not settings', () => {
-  const storage = fakeStorage({ 'artale-red-dot-alert': 'not json at all' });
+  const storage = fakeStorage({ 'ms-minimap-red-dot-alert': 'not json at all' });
 
   assert.deepEqual(loadSettings(storage), DEFAULT_SETTINGS);
 });
@@ -96,4 +96,23 @@ test('keeps detector options that were saved by the current version', () => {
   const current = { ...DEFAULT_SETTINGS, detect: { ...DEFAULT_SETTINGS.detect, minValue: 0.9 } };
 
   assert.equal(normalizeSettings(current).detect.minValue, 0.9);
+});
+
+test('reads settings that were saved under the previous storage key', () => {
+  const saved = { version: SETTINGS_VERSION, threshold: 7, region: { x: 0.1, y: 0.1, width: 0.3, height: 0.2 } };
+  const storage = fakeStorage({ 'artale-red-dot-alert': JSON.stringify(saved) });
+
+  const settings = loadSettings(storage);
+
+  assert.equal(settings.threshold, 7);
+  assert.deepEqual(settings.region, saved.region);
+});
+
+test('prefers settings saved under the current storage key', () => {
+  const storage = fakeStorage({
+    'ms-minimap-red-dot-alert': JSON.stringify({ version: SETTINGS_VERSION, threshold: 2 }),
+    'artale-red-dot-alert': JSON.stringify({ version: SETTINGS_VERSION, threshold: 7 }),
+  });
+
+  assert.equal(loadSettings(storage).threshold, 2);
 });

@@ -1,7 +1,7 @@
 // Alert delivery: desktop notification, audible chime and an on-page flash.
 // Each channel is independent so the user can keep only what they want.
 
-const NOTIFICATION_TAG = 'artale-red-dot';
+const NOTIFICATION_TAG = 'ms-minimap-red-dot';
 
 export function notificationsSupported() {
   return typeof Notification !== 'undefined';

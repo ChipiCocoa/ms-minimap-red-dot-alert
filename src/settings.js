@@ -94,12 +94,16 @@ export function normalizeSettings(raw) {
   };
 }
 
-export const STORAGE_KEY = 'artale-red-dot-alert';
+export const STORAGE_KEY = 'ms-minimap-red-dot-alert';
+
+// The project was renamed after people had already framed their minimap, and
+// that region is the tedious part to set up. Reading the old key keeps it.
+const LEGACY_STORAGE_KEY = 'artale-red-dot-alert';
 
 /** Reads settings from a localStorage-like store, falling back to defaults. */
 export function loadSettings(storage) {
   try {
-    const stored = storage.getItem(STORAGE_KEY);
+    const stored = storage.getItem(STORAGE_KEY) ?? storage.getItem(LEGACY_STORAGE_KEY);
     return normalizeSettings(stored ? JSON.parse(stored) : undefined);
   } catch {
     return normalizeSettings(undefined);
