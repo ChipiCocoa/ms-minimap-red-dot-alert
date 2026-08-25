@@ -3,9 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@10.30.3",
   "description": "Client-side minimap red-dot detector with screen sharing and desktop alerts",
   "scripts": {
+    "build": "node scripts/build.js",
     "test": "node --test",
-    "serve": "node scripts/serve.js"
+    "serve": "node scripts/serve.js",
+    "preview": "SERVE_ROOT=dist node scripts/serve.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
   }
 }

@@ -6,7 +6,7 @@ import { readFile } from 'node:fs/promises';
 import { extname, join, normalize, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
+const PROJECT_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const PORT = Number(process.env.PORT ?? 8080);
 
 const TYPES = {
@@ -18,21 +18,21 @@ const TYPES = {
   '.svg': 'image/svg+xml',
 };
 
-/** Resolves a request path to a file inside the project, or null if it escapes. */
-function resolveRequestPath(requestUrl) {
+/** Resolves a request path to a file inside the served root, or null if it escapes. */
+function resolveRequestPath(requestUrl, root) {
   const { pathname } = new URL(requestUrl, 'http://localhost');
   const relative = normalize(decodeURIComponent(pathname)).replace(/^(\.\.[/\\])+/, '');
-  const path = join(ROOT, relative === '/' ? 'index.html' : relative);
-  return path.startsWith(ROOT) ? path : null;
+  const path = join(root, relative === '/' ? 'index.html' : relative);
+  return path.startsWith(root) ? path : null;
 }
 
-export function createStaticServer() {
+export function createStaticServer(root = PROJECT_ROOT) {
   return createServer(async (request, response) => {
     // Decoding happens inside the guard: a malformed escape such as `/%` throws
     // a URIError, and an unhandled rejection here takes the whole server down.
     let path;
     try {
-      path = resolveRequestPath(request.url);
+      path = resolveRequestPath(request.url, root);
     } catch {
       response.writeHead(400).end('bad request');
       return;
@@ -57,7 +57,8 @@ export function createStaticServer() {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  createStaticServer().listen(PORT, () => {
+  const root = process.env.SERVE_ROOT ? resolve(PROJECT_ROOT, process.env.SERVE_ROOT) : PROJECT_ROOT;
+  createStaticServer(root).listen(PORT, () => {
     console.log(`小地圖紅點警報：http://localhost:${PORT}`);
   });
 }

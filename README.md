@@ -7,10 +7,18 @@
 ## 執行
 
 ```bash
+pnpm install
 pnpm serve
 ```
 
 打開 <http://localhost:8080>。`getDisplayMedia` 只在安全來源可用，`localhost` 算安全來源，所以不能直接用 `file://` 開。
+
+`pnpm serve` 直接餵原始碼，不經過打包，所以開發時跑的就是測試跑的那一份。要看實際部署的樣子：
+
+```bash
+pnpm build      # 產生 dist/
+pnpm preview    # 用 dist/ 起同一個 server
+```
 
 ## 使用
 
@@ -44,7 +52,13 @@ pnpm test
 純邏輯的單元測試（顏色判定、分群計數、警報去彈跳與冷卻、範圍幾何、設定驗證），其中紅點判定是直接跑真實的小地圖截圖。
 
 瀏覽器端的管線檢測需要真的瀏覽器：`pnpm serve` 之後打開
-<http://localhost:8080/test/browser/pipeline-check.html>，它用 canvas 產生的假畫面跑完整條管線，不需要螢幕分享權限。
+<http://localhost:8080/test/browser/pipeline-check.html>，它用 canvas 產生的假畫面跑完整條管線，不需要螢幕分享權限。這頁不會被打包進 `dist/`。
+
+## 部署
+
+推到 `main` 會觸發 `.github/workflows/deploy.yml`：安裝相依 → 跑測試 → 打包 → 發布到 GitHub Pages。測試沒過就不會發布。
+
+打包用 esbuild，是唯一的相依。輸出檔名帶內容雜湊，`sw.js` 保持原名（頁面是用路徑註冊它的）。
 
 ## 已知限制
 
