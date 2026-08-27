@@ -10,6 +10,7 @@ import {
 import { createCapture } from './capture.js';
 import { createKeepAwake } from './keep-awake.js';
 import { rectFromPoints } from './region.js';
+import { createStallWatch } from './stall-watch.js';
 import { DEFAULT_SETTINGS, loadSettings, normalizeSettings, saveSettings } from './settings.js';
 
 const el = (id) => document.getElementById(id);
@@ -49,17 +50,19 @@ let flashTimer = null;
 let hiddenFrames = 0;
 let frameErrors = 0;
 let sourceLabel = '';
+let stallWatch = null;
+let stallTimer = null;
 const frameTimestamps = [];
 
 const overlayContext = ui.overlay.getContext('2d');
 const keepAwake = createKeepAwake();
 
 const alerts = createAlerts({
-  onFlash: (count) => {
+  onFlash: (title) => {
     document.body.classList.remove('alerting');
     void document.body.offsetWidth; // Restart the animation on a repeat alert.
     document.body.classList.add('alerting');
-    document.title = `🔴 ${count} 個紅點！`;
+    document.title = `🔴 ${title}`;
 
     clearTimeout(flashTimer);
     flashTimer = setTimeout(() => {
@@ -122,7 +125,10 @@ function bindForm() {
       // Reconfigured rather than rebuilt: a settings tweak must not clear the
       // cooldown and re-alert on a dot that has been there all along.
       gate.configure(gateOptions());
-      if (field === 'sampleFps') capture.setFps(settings.sampleFps);
+      if (field === 'sampleFps') {
+        capture.setFps(settings.sampleFps);
+        if (capture.isRunning()) startStallWatch();
+      }
     });
   }
 
@@ -178,9 +184,45 @@ function measureFps() {
   ui.statFps.textContent = `${fps.toFixed(1)} fps`;
 }
 
+// Frames stop without the track ending when the captured window is minimised,
+// so absence of frames has to be watched for on a clock of its own.
+function stallAfterMs() {
+  return Math.max(3000, (1000 / settings.sampleFps) * 4);
+}
+
+function startStallWatch() {
+  stopStallWatch();
+  stallWatch = createStallWatch({ stallAfterMs: stallAfterMs() });
+  stallWatch.feed(performance.now());
+  stallTimer = setInterval(() => {
+    if (stallWatch?.check(performance.now())) reportStall();
+  }, 1000);
+}
+
+function stopStallWatch() {
+  clearInterval(stallTimer);
+  stallTimer = null;
+  stallWatch = null;
+}
+
+function reportStall() {
+  ui.statFps.textContent = '0.0 fps';
+  setStatus('畫面已停止更新', 'alert');
+  ui.sourceMode.textContent = '收不到畫面：遊戲視窗可能被最小化，或分享已被系統中斷。';
+  alerts.fire({
+    title: '偵測已停止',
+    body: '收不到畫面，可能是遊戲視窗被最小化。紅點警報目前不會運作。',
+    tag: 'stalled',
+    kind: 'fault',
+    channels: settings,
+  });
+}
+
 function handleResult(result) {
   lastResult = result;
   measureFps();
+
+  if (stallWatch?.feed(performance.now())) ui.sourceMode.textContent = sourceLabel;
 
   if (frameErrors > 0) {
     frameErrors = 0;
@@ -200,8 +242,9 @@ function handleResult(result) {
 
   if (gate.update(result.count, performance.now())) {
     alerts.fire({
-      count: result.count,
-      threshold: settings.threshold,
+      title: `小地圖出現 ${result.count} 個紅點`,
+      body: `已達到警戒值 ${settings.threshold}，可能有其他玩家進入地圖。`,
+      tag: 'red-dot',
       channels: settings,
     });
     ui.statLastAlert.textContent = new Date().toLocaleTimeString('zh-TW', { hour12: false });
@@ -219,6 +262,7 @@ function handleStopped() {
   ui.dotCount.classList.remove('hot');
   ui.statFps.textContent = '0.0 fps';
   setStatus('待機中', 'idle');
+  stopStallWatch();
   keepAwake.stop();
   frameTimestamps.length = 0;
   lastResult = null;
@@ -381,6 +425,7 @@ function bindButtons() {
       ui.stopButton.disabled = false;
       ui.previewWrap.classList.add('live');
       setStatus('偵測中', 'live');
+      startStallWatch();
       resizeOverlay();
 
       await preparing;
@@ -405,7 +450,12 @@ function bindButtons() {
     await requestNotificationPermission();
     refreshPermissionState();
     await alerts.prepare();
-    alerts.fire({ count: settings.threshold, threshold: settings.threshold, channels: settings });
+    alerts.fire({
+      title: `小地圖出現 ${settings.threshold} 個紅點`,
+      body: '這是一則測試通知。',
+      tag: 'red-dot',
+      channels: settings,
+    });
   });
 
   ui.permissionButton.addEventListener('click', async () => {

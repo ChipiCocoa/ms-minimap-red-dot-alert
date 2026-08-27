@@ -1,8 +1,6 @@
 // Alert delivery: desktop notification, audible chime and an on-page flash.
 // Each channel is independent so the user can keep only what they want.
 
-const NOTIFICATION_TAG = 'ms-minimap-red-dot';
-
 export function notificationsSupported() {
   return typeof Notification !== 'undefined';
 }
@@ -21,13 +19,12 @@ export function createAlerts({ onFlash }) {
   let audioContext = null;
   let serviceWorker = null;
 
-  async function showNotification(count, threshold) {
+  async function showNotification({ title, body, tag }) {
     if (notificationPermission() !== 'granted') return;
 
-    const title = `小地圖出現 ${count} 個紅點`;
     const options = {
-      body: `已達到警戒值 ${threshold}，可能有其他玩家進入地圖。`,
-      tag: NOTIFICATION_TAG,
+      body,
+      tag,
       renotify: true,
       requireInteraction: false,
       silent: true, // The chime is handled separately so it can be switched off.
@@ -46,12 +43,19 @@ export function createAlerts({ onFlash }) {
     new Notification(title, options);
   }
 
-  function playChime() {
+  // Rising for an arrival, falling for a fault: the two must be tellable apart
+  // by ear, since the whole point is that nobody is looking at the screen.
+  const CHIMES = {
+    alert: [880, 1320],
+    fault: [660, 440],
+  };
+
+  function playChime(kind) {
     if (!audioContext) return;
     if (audioContext.state === 'suspended') audioContext.resume();
 
     const now = audioContext.currentTime;
-    [880, 1320].forEach((frequency, index) => {
+    (CHIMES[kind] ?? CHIMES.alert).forEach((frequency, index) => {
       const oscillator = audioContext.createOscillator();
       const gain = audioContext.createGain();
       const start = now + index * 0.16;
@@ -96,10 +100,10 @@ export function createAlerts({ onFlash }) {
       }
     },
 
-    fire({ count, threshold, channels }) {
-      if (channels.notifySystem) showNotification(count, threshold);
-      if (channels.notifySound) playChime();
-      if (channels.notifyFlash) onFlash(count);
+    fire({ title, body, tag, kind = 'alert', channels }) {
+      if (channels.notifySystem) showNotification({ title, body, tag });
+      if (channels.notifySound) playChime(kind);
+      if (channels.notifyFlash) onFlash(title, kind);
     },
   };
 }
