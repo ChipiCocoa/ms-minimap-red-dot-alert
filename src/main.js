@@ -154,6 +154,10 @@ function bindForm() {
 function describeRegion() {
   const region = settings.region;
   ui.clearRegionButton.disabled = !region;
+  // Drives the callout over the preview, which only shows while sharing is
+  // running and nothing has been framed yet.
+  ui.previewWrap.classList.toggle('needs-region', !region);
+  ui.regionInfo.classList.toggle('warn', !region);
   ui.regionInfo.textContent = region
     ? `已框選範圍：畫面的 ${(region.width * 100).toFixed(1)}% × ${(region.height * 100).toFixed(1)}%，`
       + `左上角在 ${(region.x * 100).toFixed(1)}%, ${(region.y * 100).toFixed(1)}%。`
@@ -350,11 +354,10 @@ function bindButtons() {
   ui.startButton.addEventListener('click', async () => {
     ui.startButton.disabled = true;
 
-    // Both the audio context and getDisplayMedia need the click's user
-    // activation, and awaiting anything first can spend it. So the audio
-    // context is created synchronously here and only awaited once capture has
-    // claimed the gesture. Notification permission is asked for from its own
-    // button for the same reason.
+    // getDisplayMedia needs the click's transient activation and other calls
+    // can spend it, so it goes first and everything else waits its turn. The
+    // audio context is only created here, before the first await, because
+    // creating it later would leave it suspended.
     const preparing = alerts.prepare();
 
     try {
@@ -381,6 +384,12 @@ function bindButtons() {
       resizeOverlay();
 
       await preparing;
+
+      // Asked for as part of starting, once capture has taken the gesture it
+      // needed. Capture is already running by now, so a rejected prompt must
+      // not surface as a capture failure; the state simply stays 'default' and
+      // the button in the settings panel is the way back to it.
+      await requestNotificationPermission().catch(() => {});
       refreshPermissionState();
     } catch (error) {
       ui.startButton.disabled = false;

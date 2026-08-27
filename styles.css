@@ -143,6 +143,33 @@ button.link {
 }
 .preview.live .preview-hint { display: none; }
 
+/* Sharing has started but nothing is framed yet, which is the one moment the
+   instruction actually matters. It sits at the top so the frame stays visible,
+   and ignores pointer events so it cannot block the drag it is asking for. */
+.preview-callout {
+  position: absolute;
+  inset: 12px 12px auto 12px;
+  display: none;
+  margin: 0;
+  padding: 9px 14px;
+  border-radius: 8px;
+  background: #ffb454;
+  color: #241704;
+  font-weight: 700;
+  text-align: center;
+  pointer-events: none;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  animation: callout-pulse 1.8s ease-in-out infinite;
+}
+
+.preview.live.needs-region .preview-callout { display: block; }
+.preview.live.needs-region { outline: 2px solid #ffb454; outline-offset: -2px; }
+
+@keyframes callout-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.72; }
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -173,6 +200,7 @@ input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent);
 .notes li { margin-bottom: 6px; }
 
 .muted { color: var(--muted); }
+.warn { color: #ffb454; font-weight: 600; }
 .small { font-size: 13px; }
 
 @media (max-width: 620px) {
