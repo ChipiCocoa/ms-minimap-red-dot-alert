@@ -2,6 +2,8 @@
 
 用瀏覽器的螢幕分享盯著遊戲小地圖，數紅點（其他玩家），超過設定的數量就發系統通知。
 
+線上版：<https://chipicocoa.github.io/ms-minimap-red-dot-alert/>　作者：[ChipiCocoa](https://github.com/ChipiCocoa)
+
 偵測全部在瀏覽器內執行，沒有後端，擷取到的畫面不會離開你的電腦。頁面載入 Google Analytics 記錄造訪次數，送出的只有一般的網頁瀏覽事件，不含任何畫面內容。
 
 ## 執行
