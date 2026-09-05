@@ -1,73 +1,73 @@
-# 小地圖紅點警報
+# Minimap Red Dot Alert
 
-用瀏覽器的螢幕分享盯著遊戲小地圖，數紅點（其他玩家），超過設定的數量就發系統通知。
+Watches a game's minimap through browser screen sharing, counts the red dots (other players), and sends a desktop notification once the count reaches a threshold you set.
 
-線上版：<https://chipicocoa.github.io/ms-minimap-red-dot-alert/>　作者：[ChipiCocoa](https://github.com/ChipiCocoa)
+Live: <https://chipicocoa.github.io/ms-minimap-red-dot-alert/>
 
-偵測全部在瀏覽器內執行，沒有後端，擷取到的畫面不會離開你的電腦。頁面載入 Google Analytics 記錄造訪次數，送出的只有一般的網頁瀏覽事件，不含任何畫面內容。
+Detection runs entirely in the browser. There is no backend, and captured frames never leave your machine. The page loads Google Analytics to count visits; what it sends is an ordinary page-view event, never any frame content.
 
-## 執行
+## Running
 
 ```bash
 pnpm install
 pnpm serve
 ```
 
-打開 <http://localhost:8080>。`getDisplayMedia` 只在安全來源可用，`localhost` 算安全來源，所以不能直接用 `file://` 開。
+Open <http://localhost:8080>. `getDisplayMedia` only works on a secure origin, and `localhost` counts as one, so the page cannot be opened from `file://`.
 
-`pnpm serve` 直接餵原始碼，不經過打包，所以開發時跑的就是測試跑的那一份。要看實際部署的樣子：
+`pnpm serve` serves the source files directly with no bundling, so what you run during development is exactly what the tests run. To see the deployed form:
 
 ```bash
-pnpm build      # 產生 dist/
-pnpm preview    # 用 dist/ 起同一個 server
+pnpm build      # writes dist/
+pnpm preview    # serves dist/ with the same server
 ```
 
-## 使用
+## Usage
 
-1. 按「開始分享螢幕」，選遊戲視窗（選「視窗」比整個螢幕穩定）。
-2. 在預覽畫面上拖曳，框出小地圖範圍。框選會存進 `localStorage`，下次自動套用。
-3. 確認偵測到的紅點有被綠框標出來、數字正確，就可以切回遊戲。
-4. 觸發時會發系統通知、播提示音、頁面閃紅，三個管道可各自關閉。
+1. Click **開始分享螢幕** (start sharing) and pick the game window. A window is steadier than the whole screen.
+2. Drag on the preview to frame the minimap. The region is saved to `localStorage` and applied automatically next time.
+3. Check that the detected dots are boxed in green and the count is right, then switch back to the game.
+4. When the threshold is reached you get a desktop notification, a chime and a red flash on the page. Each channel can be switched off on its own.
 
-「背景取樣」欄位是給你確認的：切回遊戲一段時間再回來看，數字有在增加就代表分頁被隱藏時仍然持續偵測。
+The **背景取樣** (background samples) counter exists so you can confirm the detector is still working while the tab is hidden: play for a while, come back, and the number should have gone up.
 
-## 紅點怎麼判定
+## How a red dot is recognised
 
-小地圖上的其他玩家是飽和度極高的純紅（`#FF0000` 附近），而地圖裡的火把、木頭裝飾是橘紅色（`#E27304`、`#D53E06` 之類），自己則是黃點（`#FFFF00`）。
+Other players on the minimap are drawn in a highly saturated pure red (around `#FF0000`). Torches and wooden scenery are orange-red (`#E27304`, `#D53E06` and the like), and your own marker is yellow (`#FFFF00`).
 
-判定條件是 HSV：色相在純紅 ±12°、飽和度 ≥ 0.75、明度 ≥ 0.85。明度下限是關鍵：小地圖紅點最暗的像素還有 0.87，場景陰影的紅色最亮只到 0.8，門檻落在兩者之間。通過的像素做 8-連通分群，再用面積下限 12 濾掉場景碎屑——玩家紅點原生大約 5×5、畫面放大時 10×10，只有幾個像素的東西不可能是玩家。這組參數是對照三張實際擷取畫面調出來的。
+The test is in HSV: hue within ±12° of pure red, saturation ≥ 0.75, value ≥ 0.85. The value floor is the decisive one. The darkest pixel of a real dot still sits at 0.87, while red shading on scenery tops out at 0.8, so the threshold falls between them. Passing pixels are grouped with 8-connectivity, and an area floor of 12 pixels discards specks of map art: a player dot is roughly 5×5 at native scale and 10×10 when the capture is upscaled, so anything of a few pixels cannot be a player. The parameters were tuned against three real captures.
 
-畫面有縮放或濾鏡導致判定不準時，到「進階：紅點判定參數」調整，預覽上的綠框會即時反映結果。
+If display scaling or a filter throws the detection off, adjust it under **進階：紅點判定參數** (advanced: detection parameters). The green boxes on the preview reflect the result immediately.
 
-## 為什麼要在意分頁被隱藏
+## Why a hidden tab matters
 
-玩遊戲時這個分頁一定在背景，而瀏覽器會把隱藏分頁的計時器節流到一分鐘一次，`requestAnimationFrame` 直接停擺。
+While you play, this tab is always in the background, and browsers throttle a hidden tab's timers to once a minute and stop `requestAnimationFrame` outright.
 
-所以取樣優先走 `MediaStreamTrackProcessor`：畫面是由擷取管線推送過來的，跟分頁有沒有在算繪無關。瀏覽器不支援時才退回 `<video>` + 計時器，此時會自動播放一段聽不見的音訊讓分頁保持活躍，並在狀態列標示「相容模式」。
+Sampling therefore prefers `MediaStreamTrackProcessor`: frames are pushed by the capture pipeline, independent of whether the page is being painted. Browsers without it fall back to a `<video>` element and a timer; in that mode the page plays an inaudible tone to keep itself from being throttled, and the status bar shows **相容模式** (compatibility mode).
 
-## 測試
+## Tests
 
 ```bash
 pnpm test
 ```
 
-純邏輯的單元測試（顏色判定、分群計數、警報去彈跳與冷卻、範圍幾何、設定驗證），其中紅點判定是直接跑真實的小地圖截圖。
+Unit tests cover the pure logic: colour classification, blob counting, alert debouncing and cooldown, region geometry, and settings validation. The colour tests run against real minimap screenshots.
 
-瀏覽器端的管線檢測需要真的瀏覽器：`pnpm serve` 之後打開
-<http://localhost:8080/test/browser/pipeline-check.html>，它用 canvas 產生的假畫面跑完整條管線，不需要螢幕分享權限。這頁不會被打包進 `dist/`。
+The browser-side pipeline check needs a real browser: run `pnpm serve` and open
+<http://localhost:8080/test/browser/pipeline-check.html>. It drives the full pipeline from a canvas-generated stream, so no screen-share permission is needed. This page is not included in `dist/`.
 
-## 部署
+## Deployment
 
-推到 `main` 會觸發 `.github/workflows/deploy.yml`：安裝相依 → 跑測試 → 打包 → 發布到 GitHub Pages。測試沒過就不會發布。
+A push to `main` runs `.github/workflows/deploy.yml`: install, test, build, publish to GitHub Pages. If the tests fail, nothing is published.
 
-打包用 esbuild，是唯一的相依。輸出檔名帶內容雜湊，`sw.js` 保持原名（頁面是用路徑註冊它的）。
+The bundle is produced by esbuild, the only dependency. Output filenames carry a content hash; `sw.js` keeps its plain name because the page registers it by path.
 
-## 已知限制
+## Known limitations
 
-- 需要 Chrome / Edge。Firefox 沒有 `MediaStreamTrackProcessor`，會走相容模式，此時分頁必須保持可見。
-- Windows 的「專注助理／勿擾」開啟時，系統通知會被作業系統吞掉。
-- 最小化遊戲視窗會讓 Windows 停止繪製它，擷取隨之收不到畫面。擷取軌道仍是 `live`、`muted` 也還是 `false`，所以只能靠「多久沒收到畫面」來判斷；超過取樣間隔的四倍（至少 3 秒）就會發出「偵測已停止」通知。分頁在背景時計時器會被節流，這個判斷最慢可能延遲到一分鐘。
-- 站在出生點會讓自己的黃點蓋住剛進地圖的人的紅點，正好錯過最該偵測的那一刻。站開一點。
-- 兩個玩家站在同一點時紅點會黏成一團。「估算重疊紅點人數」可以用面積推估人數，預設關閉。
-- **有些地圖的小地圖是縮小的實景而不是示意圖**，裡面可能有跟玩家紅點一模一樣的純紅美術（實測遇過一朵紅色蘑菇：像素同樣是 `#FF0000`／`#EE0000`／`#DD0000`，面積 80 對玩家的 84，填充率 0.59 對玩家的 0.62）。顏色、面積、填充率、長寬比都分不開，靜態畫面無解。這種地圖要嘛把警戒值調高，要嘛接受這個固定的底數。
-- 面積下限預設 12 是以原生或放大的擷取為前提。如果分享畫面被縮小到原生解析度以下，紅點可能小於 12 像素而被濾掉，此時要到進階面板調低。
+- Requires Chrome or Edge. Firefox lacks `MediaStreamTrackProcessor` and falls back to compatibility mode, where the tab has to stay visible.
+- With Windows Focus Assist / Do Not Disturb on, the operating system swallows desktop notifications.
+- Minimising the game window makes Windows stop drawing it, and the capture receives nothing. The track stays `live` and `muted` stays `false`, so the only usable signal is how long it has been since the last frame: after four sample intervals (at least 3 seconds) a "detection stopped" notification is sent. Timers are throttled while the tab is in the background, so this can take up to a minute to fire.
+- Standing on the map's spawn point puts your own yellow marker on top of the red dot of whoever just arrived, hiding it at exactly the moment that matters. Stand somewhere else.
+- Two players on the same spot merge into one blob. **估算重疊紅點人數** (estimate merged dots) infers a count from the area; it is off by default.
+- **Some maps draw the minimap as a miniature of the real scenery rather than a schematic**, and it can contain pure-red art identical to a player dot. One real case is a red mushroom cap: the same `#FF0000` / `#EE0000` / `#DD0000` pixels, area 80 against a dot's 84, fill ratio 0.59 against 0.62. Colour, area, fill and aspect all fail to separate them, and a static frame cannot. On such maps either raise the threshold or accept the fixed baseline.
+- The default area floor of 12 assumes a native or upscaled capture. If the shared window is scaled below native resolution a dot can fall under 12 pixels and be discarded; lower the floor in the advanced panel.
